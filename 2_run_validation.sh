@@ -1,0 +1,21 @@
+CUDA=7
+cd nanoGPT
+
+# a. TINY TEST EXPERIMENTS
+CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=1 train.py config/val00A-node-125M-1k-baseline-s1.py
+CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=1 train.py config/val00V-node-125M-1k-AVG-s1.py
+
+# b. SMALL-SCALE EXPERIMENTS
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val12A-node-125M-50k-baseline-s1.py
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val12V-node-125M-50k-AVG-s1.py
+# [..]
+
+# c. SCALED COUPLED ADAM
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val15V-node-125M-200k-AVG-as3-s1
+# [..]
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val15V-node-125M-200k-AVG-as3200-s1
+
+# d. SGD
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val15A-node-125M-200k-sgd-100-s1
+# [..]
+# CUDA_VISIBLE_DEVICES=$CUDA torchrun --standalone --nproc_per_node=4 train.py config/val15A-node-125M-200k-sgd-600-s1

@@ -52,13 +52,14 @@ Note:
 - W&B logging is turned off by default. To turn it on, change `wandb_log = False` to `wandb_log = True` and log in to W&B. 
 - The listed experiment configs only correspond to a single run with `seed = 1`. For all but the large-scale experiments, additional experiments with `seed = 2,3` were conducted.
 
-### 3a. Tiny Test Experiment 
+### a. Tiny Test Experiments 
 
 | Config Name                       | D     | N    | Adam            |
 | --------------------------------- | ----- | ---- | --------------- |
 | exp00A-node-125M-1k-baseline-s1   | 100M  | 125M | Standard        |
+| exp00V-node-125M-1k-AVG-s1        | 100M  | 125M | Coupled         |
 
-### 3b. Small-scale Experiments (Sec. 4.1 & 5.1): 
+### b. Small-scale Experiments (Sec. 4.1 & 5.1): 
 
 | Config Name                       | D     | N    | Adam            |
 | --------------------------------- | ----- | ---- | --------------- |
@@ -71,7 +72,7 @@ Note:
 
 The corresponding config files for N=355M and N=760M are named `exp2??-node-355M-*k-*-s1` and `exp3??-node-760M-*k-AVG-s1`, respectively.
 
-### 3c. Scaled Coupled Adam (Sec. 6.1): 
+### c. Scaled Coupled Adam (Sec. 6.1): 
 
 | Config Name                         | D      | N    | n  |
 | ----------------------------------- | ------ | ---- | -- |
@@ -86,10 +87,8 @@ The corresponding config files for N=355M and N=760M are named `exp2??-node-355M
 | exp15V-node-125M-200k-AVG-as1600-s1 |  20B   | 125M | -4 |
 | exp15V-node-125M-200k-AVG-as3200-s1 |  20B   | 125M | -5 |
 
-The corresponding config files for D=5B and D=10B are named `exp12V-node-125M-50k-AVG-as*-s1` and `exp13V-node-125M-100k-AVG-as*-s1`, respectively.
-`
 
-### 3d. SGD (Sec. 6.2): 
+### d. SGD (Sec. 6.2): 
 
 | Config Name                       | D     | N    | f   |
 | --------------------------------- | ----- | ---- | --- |
@@ -99,8 +98,6 @@ The corresponding config files for D=5B and D=10B are named `exp12V-node-125M-50
 | exp15A-node-125M-200k-sgd-400-s1  |  20B  | 125M | 400 |
 | exp15A-node-125M-200k-sgd-500-s1  |  20B  | 125M | 500 |
 | exp15A-node-125M-200k-sgd-600-s1  |  20B  | 125M | 600 |
-
-The corresponding config files for D=5B and D=10B are named `exp12V-node-125M-50k-sgd-*-s1` and `exp13V-node-125M-100k-sgd-*-s1`, respectively.
 
 
 ## 4. Run Experiments & Analyze Results
@@ -119,9 +116,9 @@ The experiments can be run and analyzed step by step with the scripts listed in 
 
 Note:
 - In each bash script,
-    - the commands for all experiments are listed
-    - all but the command for a single experiment are commented out
-    - the GPUs for training can be specified in the first row, if applicable
+    - the commands for some example experiments are listed
+    - all but the two commands for the tiny test experiments are commented out
+    - the GPUs can be specified in the first row, if applicable
 
 - The output checkpoints from each experiments and the individual results from the analysis can be found in the subfolders of `nanogpt/output`.
 
