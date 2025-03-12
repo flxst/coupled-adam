@@ -7,6 +7,11 @@ __pycache__/
 *.pkl
 *.pt
 *.pyc
+*.parquet
+*.pkl
 input.txt
 env/
 venv/
+wandb
+output
+data/openwebtext/*.bin

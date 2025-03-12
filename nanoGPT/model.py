@@ -7,6 +7,7 @@ https://github.com/openai/gpt-2/blob/master/src/model.py
 https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
 """
 
+import numpy as np
 import math
 import inspect
 from dataclasses import dataclass
@@ -15,6 +16,12 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from coupled_adam import CoupledAdam
+
+
+RANDOM_SAMPLE = np.random.randint(0,50304,100)
+
+        
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
 
@@ -105,6 +112,23 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
+class LMHead(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.embedding = nn.Linear(config.n_embd, config.vocab_size, bias=False)  # dimension: H x V
+
+    def forward(self, x):
+        """
+        input:
+            x.shape        = [batch_size, sequence_length, hidden_dim]
+            E.shape        = [vocab_size, hidden_dim]
+        
+        output:
+            logits.shape   = [batch_size, sequence_length, vocab_size]
+        """
+        return self.embedding(x)
+
+
 @dataclass
 class GPTConfig:
     block_size: int = 1024
@@ -122,20 +146,21 @@ class GPT(nn.Module):
         assert config.vocab_size is not None
         assert config.block_size is not None
         self.config = config
+        n_embd = config.n_embd
 
         self.transformer = nn.ModuleDict(dict(
-            wte = nn.Embedding(config.vocab_size, config.n_embd),
-            wpe = nn.Embedding(config.block_size, config.n_embd),
+            wte = nn.Embedding(config.vocab_size, n_embd),
+            wpe = nn.Embedding(config.block_size, n_embd),
             drop = nn.Dropout(config.dropout),
             h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-            ln_f = LayerNorm(config.n_embd, bias=config.bias),
+            ln_f = LayerNorm(n_embd, bias=config.bias),
         ))
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.lm_head = LMHead(config)
         # with weight tying when using torch.compile() some warnings get generated:
         # "UserWarning: functional_call was passed multiple values for tied weights.
         # This behavior is deprecated and will be an error in future versions"
         # not 100% sure what this is, so far seems to be harmless. TODO investigate
-        self.transformer.wte.weight = self.lm_head.weight # https://paperswithcode.com/method/weight-tying
+        self.transformer.wte.weight = self.lm_head.embedding.weight # https://paperswithcode.com/method/weight-tying
 
         # init all weights
         self.apply(self._init_weights)
@@ -187,7 +212,8 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         else:
             # inference-time mini-optimization: only forward the lm_head on the very last position
-            logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
+            # logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim
+            logits = self.lm_head(x)
             loss = None
 
         return logits, loss
@@ -260,31 +286,56 @@ class GPT(nn.Module):
 
         return model
 
-    def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
+    def configure_optimizers(self, optimizer_types, weight_decay, learning_rate, betas, momentum, nesterov, dampening, device_type, embdecay, avg_scale):
         # start with all of the candidate parameters
         param_dict = {pn: p for pn, p in self.named_parameters()}
         # filter out those that do not require grad
         param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
         # create optim groups. Any parameters that is 2D will be weight decayed, otherwise no.
         # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
-        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
-        nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
+        nodecay_params = [p for _, p in param_dict.items() if p.dim() < 2]
+        embedding_suffix = '.wte.weight'
+        decay_params = [p for n, p in param_dict.items() if p.dim() >= 2 and not n.endswith(embedding_suffix)]
+        embedding_params = [p for n, p in param_dict.items() if p.dim() >= 2 and n.endswith(embedding_suffix)]
         optim_groups = [
             {'params': decay_params, 'weight_decay': weight_decay},
-            {'params': nodecay_params, 'weight_decay': 0.0}
+            {'params': nodecay_params, 'weight_decay': 0.0},
+            {'params': embedding_params, 'weight_decay': weight_decay if embdecay else 0.0},
         ]
         num_decay_params = sum(p.numel() for p in decay_params)
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
+        num_embedding_params = sum(p.numel() for p in embedding_params)
         print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
         print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
-        # Create AdamW optimizer and use the fused version if it is available
-        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
-        use_fused = fused_available and device_type == 'cuda'
-        extra_args = dict(fused=True) if use_fused else dict()
-        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
-        print(f"using fused AdamW: {use_fused}")
+        embdecay_string = 'decayed' if embdecay else 'non-decayed'
+        print(f"num {embdecay_string} embedding parameter tensors: {len(embedding_params)}, with {num_embedding_params:,} parameters")
+        optimizers = []
+        for optimizer_name, optimizer_type in optimizer_types.items():
+            if optimizer_name == "core":
+                params = optim_groups[:-1] 
+            elif optimizer_name == "embedding":
+                params = [optim_groups[-1]]
+            else:
+                raise Exception(f'optimizer_name = {optimizer_name} unknown.')
+            if optimizer_type in ["adamw", "coupled_adam"]:
+                # Create AdamW optimizer and use the fused version if it is available
+                fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+                # SET USE_FUSED TO FALSE
+                use_fused = False
+                extra_args = dict()
+                if optimizer_type == "adamw":
+                    optimizers.append(torch.optim.AdamW(params, lr=learning_rate, betas=betas, **extra_args))
+                    print(f"using fused AdamW: {use_fused} for {optimizer_name}")
+                elif optimizer_type == "coupled_adam":
+                    print(f"using CoupledAdam (fused = {use_fused})")
+                    optimizers.append(CoupledAdam(params, lr=learning_rate, betas=betas, avg_scale=avg_scale, **extra_args))
+            elif optimizer_type == "sgd":
+                optimizers.append(torch.optim.SGD(params, lr=learning_rate, momentum=momentum, nesterov=nesterov, dampening=dampening))
+                print(f"using SGD for {optimizer_name}")
+            else:
+                raise Exception(f'optimizer_type = {optimizer_type} unknown.')
 
-        return optimizer
+        return optimizers
 
     def estimate_mfu(self, fwdbwd_per_iter, dt):
         """ estimate model flops utilization (MFU) in units of A100 bfloat16 peak FLOPS """
@@ -328,3 +379,30 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+
+    @torch.no_grad()
+    def predict_probs(self, idx, max_new_tokens=1):
+        """
+        Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
+        the sequence max_new_tokens times, feeding the predictions back into the model each time.
+        Most likely you'll want to make sure to be in model.eval() mode of operation for this.
+        """
+        for _ in range(max_new_tokens):
+            # if the sequence context is growing too long we must crop it at block_size
+            idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
+            # forward the model to get the logits for the index in the sequence
+            logits, _ = self(idx_cond)
+            # pluck the logits at the final step and scale by desired temperature
+            logits = logits[:, -1, :] # / temperature
+            # optionally crop the logits to only the top k options
+            # if top_k is not None:
+            #     v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+            #     logits[logits < v[:, [-1]]] = -float('Inf')
+            # apply softmax to convert logits to (normalized) probabilities
+            probs = F.softmax(logits, dim=-1)
+            # sample from the distribution
+            # idx_next = torch.multinomial(probs, num_samples=1)
+            # append sampled index to the running sequence and continue
+            # idx = torch.cat((idx, idx_next), dim=1)
+
+        return probs
