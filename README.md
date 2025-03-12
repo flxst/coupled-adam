@@ -2,7 +2,7 @@
 
 This repository contains code to reproduce results from the paper https://arxiv.org/abs/2502.08441. 
 
-TL;DR: The implementation of Coupled Adam can be found [here](nanogpt/coupled_adam.py).
+TL;DR: The implementation of Coupled Adam can be found [here](https://github.com/flxst/coupled-adam/blob/ab896310a3f5642e7fb8904590207c2c38960cae/nanoGPT/coupled_adam.py#L621).
 
 ## 1. Overview
 
@@ -10,9 +10,9 @@ Our code is based on 3 existing open-source repositories. For each of them, we s
 
 | Repository  | Purpose | Original Commit | Our Commit |
 | -------------------------------- | ---- | ---- | ------------ |
-| [nanoGPT](https://github.com/karpathy/nanoGPT) | Experiments & Upstream Evaluation | [325be85](https://github.com/karpathy/nanoGPT/commit/325be85d9be8c81b436728a420e85796c57dba7e) | TODO |
-| [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) | Downstream Evaluation | [7a1614e](https://github.com/EleutherAI/lm-evaluation-harness/commit/7a1614eb90d29b2983ffa027a7974b7ef53fba19) | TODO |
-| [tooMuchInCommon](https://github.com/danielbis) | Embedding Quality Evaluation  | [6598573](https://github.com/danielbis/tooMuchInCommon/commit/659857383f391816d4ee2e519b37420d63d83b36) | TODO |
+| [nanoGPT](https://github.com/karpathy/nanoGPT) | Experiments & Upstream Evaluation | [325be85](https://github.com/karpathy/nanoGPT/commit/325be85d9be8c81b436728a420e85796c57dba7e) | [ba54c74](https://github.com/flxst/coupled-adam/commit/ba54c74ed0f197f1d2bc4f3bf54f12a33f030724) |
+| [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) | Downstream Evaluation | [7a1614e](https://github.com/EleutherAI/lm-evaluation-harness/commit/7a1614eb90d29b2983ffa027a7974b7ef53fba19) | [9c265c2](https://github.com/flxst/coupled-adam/commit/9c265c21878942574097669bb328ccd9ce39c4a3) |
+| [tooMuchInCommon](https://github.com/danielbis) | Embedding Quality Evaluation  | [6598573](https://github.com/danielbis/tooMuchInCommon/commit/659857383f391816d4ee2e519b37420d63d83b36) | [5004594](https://github.com/flxst/coupled-adam/commit/50045948b579494fb383e99bcd169eb56ce9d071) |
 
 The links in the "Our commit" column allow to conveniently inspect the changes with respect to the original code.
 
