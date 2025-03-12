@@ -6,7 +6,20 @@ from datetime import datetime
 
 import numpy as np
 from transformers import AutoModel
-from post_processing import all_but_the_top, remove_mean
+
+### COUPLED ADAM START
+from os.path import abspath, dirname
+import sys
+ROOT_DIR = abspath(dirname(dirname(__file__)))
+if not ROOT_DIR in sys.path:
+    sys.path.append(ROOT_DIR)
+from transformers import AutoConfig, AutoModelForCausalLM
+from src.models.nanogpt.model_hf import MyConfig, MyModel
+AutoConfig.register("nanogpt", MyConfig)
+AutoModelForCausalLM.register(MyConfig, MyModel)
+### COUPLED ADAM END
+
+from src.post_processing import all_but_the_top, remove_mean
 
 np.random.seed(4)
 
@@ -47,8 +60,12 @@ def run(models_list, out_path):
     results = {}
 
     for model_name in models_list:
-        model = AutoModel.from_pretrained(model_name)
-        embeddings = model.get_input_embeddings().weight.detach().numpy()
+        try:
+            model = AutoModel.from_pretrained(model_name)
+            embeddings = model.get_input_embeddings().weight.detach().numpy()
+        except ValueError:
+            model = AutoModelForCausalLM.from_pretrained(model_name)
+            embeddings = model.model.lm_head.embedding.weight.detach().numpy()
         d_ = math.ceil(embeddings.shape[1] / 100)
 
         # raw

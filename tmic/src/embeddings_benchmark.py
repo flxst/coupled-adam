@@ -5,8 +5,20 @@ import json
 from datetime import datetime
 from transformers import AutoTokenizer, AutoModel
 
-from post_processing import all_but_the_top, remove_mean, identity
-from utils import (
+### COUPLED ADAM START
+from os.path import abspath, dirname
+import sys
+ROOT_DIR = abspath(dirname(dirname(__file__)))
+if not ROOT_DIR in sys.path:
+    sys.path.append(ROOT_DIR)
+from transformers import AutoConfig, AutoModelForCausalLM
+from src.models.nanogpt.model_hf import MyConfig, MyModel
+AutoConfig.register("nanogpt", MyConfig)
+AutoModelForCausalLM.register(MyConfig, MyModel)
+### COUPLED ADAM END
+
+from src.post_processing import all_but_the_top, remove_mean, identity
+from src.utils import (
     iter_files,
     load_embeddings_benchmark,
     cosine_similarity,
@@ -58,8 +70,12 @@ def main(models_list, post_processing_funcs, dataset_path_map, out_path):
     results = {}
     for model_name in models_list:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModel.from_pretrained(model_name)
-        embeddings = model.get_input_embeddings().weight.detach().numpy()
+        try:
+            model = AutoModel.from_pretrained(model_name)
+            embeddings = model.get_input_embeddings().weight.detach().numpy()
+        except ValueError:
+            model = AutoModelForCausalLM.from_pretrained(model_name)
+            embeddings = model.model.lm_head.embedding.weight.detach().numpy()
 
         for func_name, func, fargs in post_processing_funcs:
             print(f"{model_name}, {func_name}")
