@@ -30,7 +30,7 @@ log_interval = 1000
 
 # --- optimizer ---
 optimizer_core = 'adamw'
-optimizer_embedding = 'coupled_adamw'
+optimizer_embedding = 'coupled_adam'
 weight_decay = 1e-1  # general
 grad_clip = 1.0  # general; clip gradients at this value, or disable if == 0.0
 beta1 = 0.9  # adamw
