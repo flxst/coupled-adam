@@ -40,7 +40,7 @@ pip install -e lm-evaluation-harness
 ### Download OpenWebText
 
 ```
-cd nanogpt
+cd nanoGPT
 python data/openwebtext/prepare.py
 ```
 
@@ -120,6 +120,6 @@ Note:
     - all but the two commands for the tiny test experiments are commented out
     - the GPUs can be specified in the first row, if applicable
 
-- The output checkpoints from each experiments and the individual results from the analysis can be found in the subfolders of `nanogpt/output`.
+- The output checkpoints from each experiment and the individual results from the analysis can be found in the subfolders of `nanoGPT/output`.
 
-- The aggregated results can be found at `nanogpt/output/loss_overview.csv`
+- The aggregated results can be found at `nanoGPT/output/loss_overview.csv`

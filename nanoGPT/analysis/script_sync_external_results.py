@@ -104,7 +104,7 @@ def sync_tmic(target_directory: str, tmic_directory: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='output directory to analyze, e.g. "output"')
     parser.add_argument('directory')
-    parser.add_argument('--skip-tmic', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--skip-tmic', action=argparse.BooleanOptionalAction)  # should be skipped if tmic eval.py is used with --target_dir (step 5) 
     args = parser.parse_args()
     print(args)
     target_directory = join(ROOT_DIR, args.directory)
@@ -113,5 +113,5 @@ if __name__ == "__main__":
     sync_lm_eval(target_directory, lm_eval_directory=LM_EVAL_DIRECTORY)
 
     if args.skip_tmic is None:
-        TMIC_DIRECTORY = join(abspath(dirname(ROOT_DIR)), 'tooMuchInCommon/results')
+        TMIC_DIRECTORY = join(abspath(dirname(ROOT_DIR)), 'tmic/results')
         sync_tmic(target_directory, tmic_directory=TMIC_DIRECTORY)
